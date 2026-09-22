@@ -29,6 +29,38 @@ This is not a general chatbot, SaaS/Agent platform, CRM, ERP, or ecommerce platf
 Core V1 excludes autonomous support, multi-tenancy, payment, inventory forecasting,
 marketing, and execution of refunds, cancellations, address changes, or compensation.
 
+## Two-person Core MVP delivery
+
+The active collaboration goal is a Core-only minimum vertical slice:
+
+```text
+Inquiry → authorized facts → Evidence → CaseContext → structured AI draft
+→ deterministic validation → human edit and approval
+```
+
+DemoCommerce Sandbox expansion is not part of this delivery slice. Existing Sandbox
+adapter code remains available, but the team will not add Sandbox features while
+building the Core MVP.
+
+The two-person ownership model is:
+
+- **Data, test and AI owner:** database design, SQLAlchemy models, Alembic migrations,
+  seed data, database and scenario tests, LLM integration and AI evaluation.
+- **Application owner:** repositories, services, APIs, permissions, deterministic
+  Evidence/CaseContext construction, validation, frontend and deployment.
+- **Shared:** contracts, pull-request review, stage acceptance and end-to-end demo.
+
+Branches represent short-lived deliverables rather than people. `main` is the only
+long-lived stable branch; direct pushes are not part of the workflow. The intended
+sequence is contracts → database/workbench shell → order/inquiry API → Evidence and
+CaseContext → AI draft/validation → workbench/end-to-end acceptance. Each branch is
+created from an updated `main`, merged by reviewed PR after its checks pass, and then
+deleted.
+
+See the complete responsibilities, branch names, commands, dependencies, PR rules
+and Definition of Done in
+[the two-person Core MVP workflow](docs/superpowers/specs/2026-09-22-core-mvp-two-person-workflow-design.md).
+
 ## Repository
 
 ```text
@@ -41,6 +73,7 @@ frontend/                   React + TypeScript + Vite shell, Dockerfile
 docs/
   plans/01_core_plan.md      Authoritative product roadmap
   plans/03_ecommerce_environment_plan.md  Future external Sandbox specification
+  superpowers/specs/         Approved delivery and collaboration designs
   architecture.md           Responsibility boundaries and future pipeline
   scope.md                  Phase 0 and Core V1 scope
   external-system-contract.md  Conceptual external data contract
