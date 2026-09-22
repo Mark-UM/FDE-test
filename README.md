@@ -5,10 +5,13 @@ order?” by manually collecting facts from order systems, logistics systems, an
 warehouse notes. This product will bring those facts together into traceable
 evidence and help an agent prepare a careful reply.
 
-**Current implementation: Phase 0 foundation only.** The backend has `GET /health`;
-the frontend displays a static project/status page. No business workflow is
-implemented. PostgreSQL is provisioned for future work; the application does not
-connect to it yet.
+**Current implementation: Product Phase 1 — External Integration Foundation.**
+Canonical snapshots, clocks, four Provider protocols and DemoCommerce HTTP adapters
+are implemented and tested against the independent S0-S1 service. This explicitly
+authorized phase supersedes the original roadmap's Phase 1 database/seed ordering.
+The Product API still only exposes `GET /health`; the frontend remains the Phase 0
+static shell. There is no business workflow, AI, Evidence, CaseContext, authentication,
+retry or cache. PostgreSQL is provisioned but the application does not connect to it.
 
 ## Core V1 target
 
@@ -30,6 +33,10 @@ marketing, and execution of refunds, cancellations, address changes, or compensa
 
 ```text
 backend/                    FastAPI, environment settings, tests, Dockerfile
+  app/integrations/         Canonical models, protocols, explicit external errors
+    sandbox/                Raw HTTP schemas, client, explicit source adapters
+  app/core/clock.py         SystemClock and deterministic FixedClock
+  tests/integration/        Real HTTP tests (opt in with --sandbox-url)
 frontend/                   React + TypeScript + Vite shell, Dockerfile
 docs/
   plans/01_core_plan.md      Authoritative product roadmap
@@ -121,20 +128,75 @@ From the repository root, validate without a personal `.env`:
 docker compose --env-file .env.example config --quiet
 ```
 
-CI runs all these checks on pushes and pull requests. `/health` returns exactly
+CI runs unit tests (`pytest -m "not integration"`) and the lint/build/config checks.
+The independent Sandbox is not available in this repository's CI; real HTTP tests
+must run separately as described below, and skipped tests do not prove integration.
+`/health` returns exactly
 `{"status":"ok","service":"ecommerce-order-support-backend"}`; it reports
 process liveness, not database connectivity or external-system readiness.
 
-## Next work and limitations
+## Sandbox integration and real HTTP tests
 
-The next requested implementation step is **DemoCommerce Sandbox**, independently
-built against [the conceptual contract](docs/external-system-contract.md). Its
-internal database remains separate and accessible only through HTTP Providers.
-The next product roadmap phase is **Phase 1: domain models, database migrations,
-and seed data**. Neither begins as part of this bootstrap.
+The boundary is `DemoCommerce HTTP JSON → Sandbox adapter → canonical Product snapshot`.
+Product consumers use the protocols; raw fields and routes are confined to the
+adapter. OrderProvider reads orders and lists parcels; LogisticsProvider reads one
+canonical parcel's shipment/events. The caller accounts for each parcel independently.
+WarehouseProvider preserves notes, and MessageProvider reads inquiries/records replies.
+No Provider calls another Provider or resolves contradictory sources.
 
-SQLAlchemy 2, Alembic, and a PostgreSQL driver will be introduced with database
-work. HTTPX currently supports endpoint tests; runtime HTTP adapters come later.
+In the independent **demo-commerce-sandbox** checkout (locally a sibling directory):
+
+```sh
+uv sync --locked
+# Optional: set SANDBOX_DB_PATH to a new temporary SQLite filename in your shell.
+uv run uvicorn app.main:app --host 127.0.0.1 --port 9000
+```
+
+Do not reset a shared Sandbox. A fresh database is seeded automatically; tests
+use unique reply keys and create three simulated replies per idempotency test run.
+The Product never imports Sandbox code or reads its database. Source timestamps
+are fixed relative to `2026-09-20T06:00:00Z`; integration tests use FixedClock at
+that instant. Receipt `sent_at` remains source-owned actual acceptance time.
+
+Configure `SANDBOX_BASE_URL` and positive `SANDBOX_TIMEOUT_SECONDS` in root `.env`
+or the process environment. S0-S1 has **no API key**. For a Product container calling
+a host Sandbox on Docker Desktop, change the URL to `http://host.docker.internal:9000`
+and ensure the Sandbox is reachable from the container; host loopback inside the
+container points to the container itself. No client is created by `/health`.
+
+From `backend/`, with its environment active and Sandbox already running:
+
+```sh
+pytest --sandbox-url http://127.0.0.1:9000
+# Only the real HTTP suite, with individual scenario results:
+pytest tests/integration -v --sandbox-url http://127.0.0.1:9000
+```
+
+`INTEGRATION_SANDBOX_URL` is an alternative to the explicit flag. Without either,
+the integration suite is visibly skipped; if a URL is supplied but unavailable,
+tests fail rather than falling back to mocks. `SANDBOX_BASE_URL` configures runtime
+clients; the separate integration opt-in prevents accidental test writes.
+
+Adapters are used via `async with SandboxClient(Settings(), clock) as client`;
+pass that client to the concrete Provider. Omit `clock` to use SystemClock. Exiting
+closes HTTP connections. Only the adapter handles `/api/...` paths and source JSON.
+
+See [contract mappings and differences](docs/external-system-contract.md) for S10's
+actual logistics 404 (distinct from S01's successful empty parcels), source timestamp
+ownership, typed failures, and idempotency. Fixed seed scenarios have no unknown
+statuses or malformed payloads; supplemental unit tests cover those conditions.
+
+## Limitations and next work
+
+No support workflow or send endpoint is exposed. Provider send is a low-level
+integration operation; authorization/approval will be implemented before exposure.
+There is no automatic retry, cache, partial-result aggregator or freshness policy.
+If events fail after shipment retrieval, the operation raises the typed failure,
+rather than returning an apparently complete shipment. A parcel without tracking
+cannot be queried yet and produces a local ValueError without HTTP.
+
+SQLAlchemy 2, Alembic, and a PostgreSQL driver remain deferred. HTTPX is now a
+runtime dependency. Further work requires a separately authorized phase.
 React Router and TanStack Query are deferred until there are workflows to route
 or fetch. Frontend dependencies are locked in `package-lock.json`; Python uses
 bounded dependency ranges and does not yet have a full transitive lock.

@@ -1,9 +1,10 @@
-# Architecture freeze — Phase 0
+# Architecture — Product Phase 1 integration foundation
 
 The product authority is [the Core plan](plans/01_core_plan.md). The
 [environment plan](plans/03_ecommerce_environment_plan.md) describes an external
-test system only. This document describes the future target; only the health
-endpoint, configuration, and frontend shell exist today.
+test system only. The canonical pipeline below is still a future target. The
+explicitly authorized Product Phase 1 adds external integration only, overriding
+the old roadmap's Phase 1 database/seed ordering without changing product scope.
 
 ## Canonical future pipeline
 
@@ -43,16 +44,42 @@ even when they contain instructions. High-risk actions are not executable in Cor
 
 ## External systems and data ownership
 
-OrderProvider, LogisticsProvider, WarehouseProvider, LLMProvider and MessageProvider
-are future interfaces, not implemented classes. Core services must depend on these
-boundaries rather than vendor SDKs. Product PostgreSQL will hold product workflow
+OrderProvider, LogisticsProvider, WarehouseProvider and MessageProvider now exist
+as narrow async protocols. LLMProvider does not exist in this phase. Future product
+services must depend on protocols rather than Sandbox payloads. Product PostgreSQL will hold workflow
 state; Sandbox SQLite will hold external simulated commerce state. Product code
 must not query or share Sandbox database tables.
 
-Core V1's baseline is Mock Providers. The separately planned Sandbox HTTP adapters
-will use HTTPX and the [canonical contract](external-system-contract.md). The
-environment plan's HTTP demo path is an integration follow-up, not a replacement
-for the Core plan or permission to build the Sandbox in Phase 0.
+The original Core baseline is Mock Providers. This phase explicitly adds HTTPX
+Sandbox adapters for the implemented S0-S1 service. Its raw schemas and routes
+are authoritative for transport; [the canonical contract](external-system-contract.md)
+governs returned Product models. Sandbox implementation stays in a separate repository.
+
+```text
+DemoCommerce HTTP JSON
+→ SandboxClient (timeout, request ID, status mapping, raw schema validation)
+→ Sandbox Provider adapter (explicit names, identity checks, source provenance)
+→ canonical Product snapshot
+```
+
+`app/integrations/models.py` has no HTTP routes or raw Sandbox names. Raw Pydantic
+schemas stay inside `integrations/sandbox/`; they never become Product return types.
+OrderProvider owns order and parcel discovery. LogisticsProvider accepts one canonical
+parcel and reads shipment/events from that source only. It cannot silently discard a
+failed parcel. WarehouseProvider and MessageProvider operate independently. No
+cross-provider collector, evidence creation or conflict resolution is implemented.
+
+The client assigns an injected Clock's UTC time after each successful HTTP response.
+Snapshots preserve nullable source updates; events keep their own fetch timestamp
+and event ID provenance. Support inquiries/receipts follow their existing canonical
+contract; receipt `sent_at` is source-owned and is never replaced by the Product clock.
+SystemClock serves runtime use; FixedClock pins tests to the Sandbox seed reference.
+
+ExternalNotFound, ExternalTimeout, ExternalUnavailable, ExternalInvalidResponse,
+ExternalConflict and ExternalRejected retain service, operation, request ID, HTTP
+status and source error code. They do not expose raw payload text. HTTP failures
+remain failures even if their error body is malformed. Redirects are not followed,
+environment proxies are disabled, and no retries or caching are implemented.
 
 Fetching an old record now does not make its business facts current. Application
 code will determine freshness from original timestamps and explicit cache/failure
@@ -64,15 +91,17 @@ for before an order-wide statement is made. Retry/freshness thresholds are defer
 ## Runtime foundation today
 
 - FastAPI + Pydantic v2 exposes a deterministic, dependency-independent `/health`.
-- Pydantic Settings reads root `.env` and process variables (`APP_ENV`, `DATABASE_URL`).
+- Pydantic Settings reads root `.env` and process variables (`APP_ENV`, `DATABASE_URL`,
+  `SANDBOX_BASE_URL`, `SANDBOX_TIMEOUT_SECONDS`).
   The URL is masked in representations and is not used to connect in Phase 0.
 - React + TypeScript + Vite renders only a static title/status page.
 - Development Compose provides backend, frontend and PostgreSQL. Backend startup
   waits for the PostgreSQL container health check, but `/health` never queries it.
 - Pytest, Ruff, ESLint, TypeScript, Vite build and Compose config validation form CI.
 
-No authentication, domain/database behavior, Provider implementation, Evidence
-Engine, CaseContext resolver, LLM integration or support workbench is present.
-SQLAlchemy 2, Alembic and the database driver are deferred to Phase 1; the
+No authentication, domain/database behavior, Evidence Engine, CaseContext resolver,
+LLM integration or support workbench is present. No Product send API is added;
+SandboxMessageProvider only verifies the simulated external boundary and does not
+decide approval. Authorization and approval are required before future exposure.
+SQLAlchemy 2, Alembic and the database driver remain deferred; the
 `postgresql+psycopg` DATABASE_URL convention reserves that future configuration.
-

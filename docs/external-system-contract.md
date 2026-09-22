@@ -1,10 +1,11 @@
 # Minimum external-system contract — canonical v1
 
-This freezes the conceptual information needed by the product. It is not an
-implementation of Pydantic schemas, Provider classes, database tables or Sandbox
-routes. [Core](plans/01_core_plan.md) remains the product authority;
-[DemoCommerce](plans/03_ecommerce_environment_plan.md) is the future external
-system that must satisfy this contract through adapters.
+This freezes the canonical information needed by the product. Product Phase 1
+implements these snapshots and Provider adapters, without database or workflow
+behavior. [Core](plans/01_core_plan.md) remains the product scope authority. The
+implemented DemoCommerce S0-S1 schemas/routes supersede the older
+[environment plan](plans/03_ecommerce_environment_plan.md) for raw HTTP payloads.
+The raw-to-canonical differences below were inspected before implementation.
 
 ## Common conventions
 
@@ -121,7 +122,7 @@ A warehouse plan is not a shipment fact. Conflicting notes and logistics records
 are both retained for future validation/review. Instruction-like text in a note
 cannot alter permissions or prove that an action happened.
 
-## SupportInquiryInput
+## SupportInquiry (the prior conceptual SupportInquiryInput)
 
 | Field | Type | Meaning |
 | --- | --- | --- |
@@ -141,7 +142,10 @@ The product must not silently guess an order or expose unrelated customer orders
 | `reply_text` | string | Exact non-empty human-reviewed final text |
 | `idempotency_key` | string | Stable non-empty key reused for retries of this approved reply |
 
-The future backend checks authorization, validation and approval before dispatch.
+The future backend must check authorization, validation and approval before dispatch.
+The current Provider verifies the transport boundary only; there is no Product send
+endpoint, approval decision or workflow. Sandbox text/key length limits (10,000/200)
+are validated by the adapter without trimming text or regenerating a key.
 The receiver must atomically deduplicate `(inquiry_id, idempotency_key)`. Retrying
 the same text with the same pair returns the original result and creates no second
 reply. Reusing the pair with different text is a conflict (HTTP 409), not a new send.
@@ -150,41 +154,63 @@ The minimal success receipt has `reply_id`, `status` and `sent_at`; Sandbox's
 The Sandbox retains deduplication results until reset. A Sandbox reset starts a new
 test run; previous-run retries must not be replayed afterward.
 
-## Future DemoCommerce HTTP mapping
+## Implemented DemoCommerce S0-S1 HTTP mapping
 
-| Product concept | Planned source endpoint | Field mapping |
+| Product concept | Actual source endpoint | Field mapping |
 | --- | --- | --- |
-| OrderSnapshot | `GET /oms/v1/orders/{external_order_id}` | `customer.external_customer_id` → `customer_reference`; `source` → provenance |
-| ParcelSnapshot + ShipmentSnapshot[] | `GET /logistics/v1/orders/{order_id}/shipments` | Envelope `order_id` → `external_order_id`; `shipments[].parcel_id` supplies parcel identity |
-| ShipmentEvent | Events nested in each shipment | `message` → `description`; `event_time` → `occurred_at`; inherit `parcel_id`; absent event update time → null |
-| WarehouseNoteSnapshot[] | `GET /warehouse/v1/orders/{order_id}/notes` | Envelope `order_id` → `external_order_id`; `id` → `note_id`; `text` → `note_text`; `updated_at` → `source_updated_at` |
-| SupportInquiryInput | `GET /support/v1/inquiries` and `GET /support/v1/inquiries/{id}` | `external_inquiry_id` → `inquiry_id`; `order_id` → `external_order_id` |
-| SupportReplyCommand | `POST /support/v1/inquiries/{inquiry_id}/replies` | ID in path; `reply_text` → body `text`; `idempotency_key` unchanged |
+| OrderSnapshot | `GET /api/oms/orders/{order_id}` | `order_id` → `external_order_id`; `customer_reference` unchanged; `updated_at` → `source_updated_at`; explicit item mapping |
+| ParcelSnapshot[] | `GET /api/oms/orders/{order_id}/parcels` | Bare array; `order_id` → `external_order_id`; `updated_at` → `source_updated_at` |
+| ShipmentSnapshot | `GET /api/logistics/shipments/{tracking_number}` | `parcel_id` and `status` unchanged; `updated_at` → `source_updated_at`; verify tracking and parcel associations |
+| ShipmentEvent[] | `GET /api/logistics/shipments/{tracking_number}/events` | Bare array; `description`, `occurred_at`, `parcel_id`, `status` unchanged; `updated_at` → `source_updated_at`; `event_id` → provenance record ID |
+| WarehouseNoteSnapshot[] | `GET /api/warehouse/orders/{order_id}/notes` | Bare array; `order_id` → `external_order_id`; `note_id` unchanged; `text` → `note_text`; `updated_at` → `source_updated_at` |
+| SupportInquiry | `GET /api/support/inquiries/{inquiry_id}` | `inquiry_id` unchanged; nullable `order_id` → `external_order_id` |
+| SupportReplyCommand / SupportReplyReceipt | `POST /api/support/inquiries/{inquiry_id}/replies` | ID in path; `reply_text` → `text`; `idempotency_key` unchanged; receipt `reply_id`, `status`, `sent_at` mapped unchanged |
+
+Source identity comes from the subsystem: `demo_oms`, `demo_logistics`,
+`demo_warehouse`, `demo_support`. Snapshot provenance is stored directly as
+`source_system` and `source_record_id`; no source-provided `source` field exists.
+The real event IDs are retained. Inquiries and receipts keep their minimal canonical
+fields above; neither gains a fabricated source update or Product receipt time.
+
+OrderProvider exposes `get_order(id)` and `get_parcels(id)`. LogisticsProvider exposes
+`get_shipment(parcel)` instead of the old aggregate `get_shipments(order)` sketch.
+Its shipment and events requests are one parcel's read operation; errors in either
+raise a typed failure. Callers must account for every parcel independently. A parcel
+with no tracking number raises a local ValueError, not a fabricated external result.
+WarehouseProvider exposes `get_notes(id)`; MessageProvider exposes `get_inquiry(id)`
+and `send_reply(command)`. Each accepts an optional correlation request ID.
 
 Shipment source timestamps must not be assigned to an individual event as if they
 were event-specific updates. Similarly, missing parcel metadata update times remain
 null. Application `fetched_at` is added on each successful source retrieval.
 
-Future Sandbox service authentication uses `X-API-Key`, with secrets in environment
-configuration. An optional `X-Request-Id` correlates requests. Service credentials
-never replace product user authorization. Policy/admin APIs in the environment
-plan are separate Sandbox concerns, not extra product Providers in this phase.
+S0-S1 implements no API-key authentication, policy API, admin API or inquiry-list
+endpoint. The Product does not invent these capabilities. `X-Request-Id` is propagated
+or generated per operation and the source echoes it. Any future service credentials
+will not replace Product user authorization.
 
 ## Result and failure semantics
 
-- Success with `[]` means the source successfully reports no records. For an
-  existing unfulfilled order, shipments can be empty (`reason: NOT_FULFILLED`).
-- A missing requested order/inquiry is 404; missing/wrong Sandbox credentials are
-  401/403. They must not be normalized to an empty success.
+- Success with `[]` means the source successfully reports no records. S01 and S05
+  return an empty OMS parcel array. There is no `reason` envelope in S0-S1.
+- A missing requested order/inquiry/shipment is 404 → ExternalNotFound. **S10 has
+  an OMS parcel but logistics returns 404**, not a successful empty result. S12's
+  inquiry exists but its order does not. Neither 404 may become `[]`.
+- 504 and HTTPX timeout → ExternalTimeout; 5xx/429 or transport failure →
+  ExternalUnavailable; 409 → ExternalConflict; other 4xx → ExternalRejected.
+  S08 returns an immediate 504, not a socket timeout. S09 returns warehouse 503.
+- Malformed success JSON, missing required fields, invalid timestamps, mismatched
+  identities or duplicate record IDs → ExternalInvalidResponse. Source statuses
+  remain open strings. Redirects and unexpected success status codes are rejected.
 - Timeout, rate limit (429), and upstream 5xx are retrieval failures. They do not
   establish a parcel's business state. No automatic retry policy is implemented here.
 - Use the environment plan's unified error object:
   `{"error":{"code":"LOGISTICS_TEMPORARILY_UNAVAILABLE","message":"...","request_id":"..."}}`.
   Its earlier scalar error example is illustrative; use the structured envelope.
-- Partial success must explicitly include `partial: true`, available shipments and
-  `failed_parcel_ids` plus per-parcel error codes. A whole-list discovery failure
-  is an unavailable result, never a silently incomplete “complete” list. Freeze
-  the concrete HTTP partial-result envelope in the Sandbox's schema phase.
+- S0-S1 has no HTTP partial-result envelope or aggregate shipment-list endpoint.
+  The older proposed `partial`/`failed_parcel_ids` envelope is not implemented.
+  Providers return complete results for their narrow operation or raise; a future
+  orchestrator must preserve individual failed parcels rather than dropping them.
 - Cached fallback retains source provenance and original timestamps and is marked
   stale by the product; no cache miss may be fabricated into business data.
 
@@ -198,34 +224,43 @@ plan are separate Sandbox concerns, not extra product Providers in this phase.
     "carrier": "DemoExpress",
     "tracking_number": "TRK000031",
     "source_updated_at": null,
-    "fetched_at": "2026-09-20T06:12:10Z"
+    "fetched_at": "2026-09-20T06:12:10Z",
+    "source_system": "demo_oms",
+    "source_record_id": "PAR-DEMO-031"
   },
   "shipment": {
     "parcel_id": "PAR-DEMO-031",
     "status": "IN_TRANSIT",
     "source_updated_at": "2026-09-20T06:10:00Z",
     "fetched_at": "2026-09-20T06:12:10Z",
+    "source_system": "demo_logistics",
+    "source_record_id": "PAR-DEMO-031",
     "events": [{
       "parcel_id": "PAR-DEMO-031",
       "status": "IN_TRANSIT",
       "description": "Departed sorting facility",
       "occurred_at": "2026-09-20T06:10:00Z",
       "source_updated_at": null,
-      "fetched_at": "2026-09-20T06:12:10Z"
+      "fetched_at": "2026-09-20T06:12:10Z",
+      "source_system": "demo_logistics",
+      "source_record_id": "PAR-DEMO-031"
     }]
-  },
-  "provenance": {
-    "source_system": "demo_logistics",
-    "source_record_id": "PAR-DEMO-031"
   }
 }
 ```
 
-## Before Sandbox implementation
+## Verification and remaining boundaries
 
-The minimum information and semantics above are frozen. Confirm the Sandbox's
-repository/directory location and concrete HTTP schemas, especially the partial
-result envelope, before building it. Use the mappings above for the existing plan's
-field names. Source timestamp absence and idempotency conflicts need contract tests.
-Freshness thresholds and retry budgets are product decisions for later phases;
-they do not block basic Sandbox data APIs. No implementation begins here.
+The actual implementation was inspected in the independent sibling checkout
+`demo-commerce-sandbox`: `app/schemas.py`, `app/routers/*`, `docs/api-contract.md`
+and `docs/scenarios.md`. Generated `/openapi.json` is checked by real HTTP tests.
+At inspection, S0-S1 implementation files were uncommitted in that separate repository;
+its Git HEAD alone is therefore not a reproducible version pin. No files there are changed.
+
+Scenario numbering differs from the original plan. S02/S04/S06/S07/S08/S09/S10/S11/S12
+are tested against actual HTTP, with S01 for successful emptiness and S05 for null
+updates. Seed reference time is fixed at `2026-09-20T06:00:00Z`, not reset time.
+Unknown statuses and malformed responses are not available in S0-S1 seed data and
+are tested with supplemental mock transports, not claimed as live scenario coverage.
+Integration tests never import Sandbox code or inspect its database. Freshness
+thresholds, retry budgets, aggregation, authorization and Evidence remain out of scope.

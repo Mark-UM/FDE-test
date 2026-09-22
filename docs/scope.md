@@ -1,16 +1,18 @@
 # Scope freeze
 
-## Current delivery: Phase 0 only
+## Current delivery: Product Phase 1 — External Integration Foundation
 
-In scope: repository layout; FastAPI health endpoint and environment settings;
-minimal React/TypeScript/Vite shell; tests/lint/build tooling; CI; development
-Docker Compose with PostgreSQL; project instructions; architecture and external
-data contracts documented without executable domain schemas.
+Phase 0 foundation remains. This explicitly authorized Phase 1 supersedes the
+original roadmap's database/seed phase ordering. In scope: canonical typed snapshots,
+SystemClock/FixedClock, four Provider protocols, explicit external errors, HTTPX
+Sandbox client and adapters, real HTTP integration tests and supporting documentation.
 
-Out of this phase: real order models, migrations, seed data, authentication,
-authorization logic, Provider classes (including mocks), Evidence Engine,
-CaseContext resolution, LLM calls, reply generation, support workbench,
-Sandbox implementation, real logistics integration or any business action.
+Out of this phase: persistent domain models, migrations, Product seed data,
+authentication/authorization flows, Evidence Engine, CaseContext, AI/LLM calls,
+drafting, UI changes, RAG, retries, caching, aggregation, conflict resolution,
+freshness policy, Sandbox implementation or real logistics/channel integrations.
+Simulated reply dispatch is tested only at the Provider boundary; no Product
+approval or send endpoint is exposed.
 
 ## Future Core V1 in scope
 
@@ -30,12 +32,12 @@ Sandbox implementation, real logistics integration or any business action.
   or autonomous customer service.
 - Real logistics/carrier and customer-channel integrations in the baseline release.
 
-## Separate future environment
+## Separate external environment
 
 DemoCommerce Sandbox supplies simulated external facts, support messages and
 controllable failures over HTTP. It contains no AI and is not this product's
 database or a second ecommerce product. Its roadmap is separate from product
-Phase 1. Only the conceptual contract is delivered here.
+phases. Its S0-S1 HTTP service now exists independently and is consumed here.
 
 Any proposed feature must directly improve the defined order-support workflow
 and be authorized for the current phase. Otherwise defer it.

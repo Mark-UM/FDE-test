@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Literal
 
-from pydantic import SecretStr
+from pydantic import Field, HttpUrl, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -16,3 +16,18 @@ class Settings(BaseSettings):
 
     app_env: Literal["development", "test", "production"] = "development"
     database_url: SecretStr | None = None
+    sandbox_base_url: HttpUrl | None = None
+    sandbox_timeout_seconds: float = Field(default=5.0, gt=0, allow_inf_nan=False)
+
+    @field_validator("sandbox_base_url")
+    @classmethod
+    def sandbox_origin(cls, value: HttpUrl | None) -> HttpUrl | None:
+        if value and (
+            value.username
+            or value.password
+            or value.query
+            or value.fragment
+            or value.path not in (None, "/")
+        ):
+            raise ValueError("SANDBOX_BASE_URL must be an HTTP(S) origin without credentials")
+        return value

@@ -22,3 +22,11 @@ def test_database_configuration_is_optional(monkeypatch) -> None:
 
     assert settings.app_env == "development"
     assert settings.database_url is None
+
+
+def test_sandbox_environment_configuration(monkeypatch) -> None:
+    monkeypatch.setenv("SANDBOX_BASE_URL", "https://sandbox.example.test:9000")
+    monkeypatch.setenv("SANDBOX_TIMEOUT_SECONDS", "2.5")
+    settings = Settings(_env_file=None)
+    assert str(settings.sandbox_base_url) == "https://sandbox.example.test:9000/"
+    assert settings.sandbox_timeout_seconds == 2.5
