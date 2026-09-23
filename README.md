@@ -168,6 +168,17 @@ must run separately as described below, and skipped tests do not prove integrati
 `{"status":"ok","service":"ecommerce-order-support-backend"}`; it reports
 process liveness, not database connectivity or external-system readiness.
 
+### Latest validation status
+
+On 2026-09-23, the local backend lint, format and non-integration tests, plus the
+frontend lint, type-check and build, were reported as completing without errors.
+Docker/runtime checks, GitHub Actions status and the real Sandbox HTTP integration
+remain unverified. This is a **basic validation result**, not full Phase 1 acceptance.
+
+See the dated
+[Phase 1 basic validation record](docs/verification/2026-09-23-phase-1-basic-validation.md)
+for the commands, evidence boundary and outstanding checks.
+
 ## Sandbox integration and real HTTP tests
 
 The boundary is `DemoCommerce HTTP JSON → Sandbox adapter → canonical Product snapshot`.
