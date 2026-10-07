@@ -5,13 +5,15 @@ order?” by manually collecting facts from order systems, logistics systems, an
 warehouse notes. This product will bring those facts together into traceable
 evidence and help an agent prepare a careful reply.
 
-**Current delivery: Core MVP Stage 3 — Sessions and authorized Inquiry APIs.**
+**Current delivery candidate: Core MVP Stage 4 — Evidence and CaseContext.**
 Canonical snapshots, clocks, four Provider protocols and DemoCommerce HTTP adapters
 are implemented and tested against the independent S0-S1 service. This explicitly
 authorized phase supersedes the original roadmap's Phase 1 database/seed ordering.
-This delivery implements Stage 3 alongside the dependency-independent `GET /health`:
+The merged baseline implements Stage 3 alongside the dependency-independent `GET /health`:
 backend authentication and permission-scoped Inquiry reads using Stage 2 Product
-persistence. There is no Evidence Engine, CaseContext resolver, AI, retry or cache.
+persistence. The 2026-10-07 handoff task authorizes the separate Stage 4 candidate:
+manual resolution through Providers, immutable source snapshots, deterministic Evidence,
+freshness/quality and permission-scoped Context/order reads. There is no AI, retry or cache.
 The static workbench remains a separate candidate in PR #4; this branch's frontend
 is the foundation shell.
 
@@ -81,7 +83,9 @@ Its integration results are recorded in
 See [current delivery status and Stage 3 exit criteria](docs/plans/04_core_mvp_next_stage_plan.md).
 Main protection and full Compose build/start verification remain outstanding.
 Local PostgreSQL container and Product HTTP validation do not replace those gates.
-Stage 4+ remains outside this delivery and requires a separate task.
+Stage 4 is now authorized by the 2026-10-07 handoff task; PR #7 is merged as `dd059fc`.
+Stage 5+ remains outside this delivery and requires a separate task. Stage 4 stays
+in a separate PR for the data owner's quality acceptance, without automatic merge.
 
 The 2026-10-06 data-owner acceptance/readiness handoff contains:
 
@@ -92,6 +96,43 @@ The 2026-10-06 data-owner acceptance/readiness handoff contains:
 
 These records prepare the next application delivery; they add no resolver, AI,
 workflow API or deployment certification.
+
+## Stage 4 interfaces and acceptance
+
+Stage 4 interfaces are frozen in [the implementation slice](docs/contracts/stage-4-implementation.md).
+The [validation and handoff record](docs/verification/2026-10-07-stage-4-evidence-context.md)
+records observed checks and outstanding acceptance. The trusted operator recovery
+procedure is [documented separately](docs/operations/resolution-recovery.md).
+
+## Stage 4 backend API candidate
+
+All business routes reuse Stage 3 bearer sessions and Inquiry ownership. The backend
+checks authorization before Provider calls and again after network reads before saving.
+
+| Method / path under `/api/v1` | Behavior |
+| --- | --- |
+| POST `/inquiries/{id}/resolve-context` | Closed `{expected_lock_version}` body and one Idempotency-Key; 201 result, 200 replay, 202 running replay with Location |
+| GET `/inquiries/{id}/runs/{run_id}` | Authorized status/version/error and current lock_version |
+| GET `/inquiries/{id}/contexts/{context_id}` | Verified `{context, is_current}`; historical reads are freshly authorized |
+| GET `/inquiries/{id}/order` | Current Context's canonical order and field freshness; no network fetch; missing binding 422, missing/current-invalid Context 409 |
+
+Each new resolve immediately invalidates current Context/Draft. Required source failure
+leaves OPEN/FAILED; optional per-parcel logistics or order-level notes failure creates
+PARTIAL/DEGRADED with successful evidence retained. Raw notes/event descriptions are
+SOURCE_TEXT. Unknown source timestamps remain UNKNOWN; fresh fetches do not refresh old facts.
+Interrupted operations remain RUNNING/BUSY until exact, explicit operator recovery.
+
+Run the complete cross-system acceptance against an independent temporary Sandbox:
+
+```powershell
+cd backend
+$env:TEST_DATABASE_URL = "postgresql+psycopg://test-user@127.0.0.1:5432/test-database"
+python -m pytest --sandbox-url http://127.0.0.1:8001 -q
+```
+
+Use a dedicated disposable Product PostgreSQL database: every test migrates a random
+schema and drops only that schema. Never reset shared Sandbox data. CI runs pure/backend
+and PostgreSQL tests; the independent Sandbox HTTP acceptance must be run separately.
 
 ## Repository
 
@@ -171,7 +212,7 @@ npm run dev
 Host CLI ports are explicit arguments; `BACKEND_PORT` and `FRONTEND_PORT` in `.env`
 control Compose port publishing. The frontend currently makes no API calls.
 
-## Stage 3 backend API candidate
+## Stage 3 session and Inquiry baseline
 
 Migrate and seed the Product PostgreSQL database using the explicit commands below
 before using business endpoints. No database is required for /health. Test identities
@@ -185,7 +226,7 @@ explicit development/test `DEMO_SEED_PASSWORD`, never a repository default.
 | `POST /api/v1/auth/logout` | Revoke current session; empty 204 |
 | `GET /api/v1/inquiries?limit=20&offset=0` | Authorized summaries; stable newest-first pagination |
 | `GET /api/v1/inquiries/{id}` | Agent's assigned Inquiry or Supervisor's same-team Inquiry |
-| `GET /api/v1/inquiries/{id}/order` | Authorized placeholder: 422 if unbound, otherwise 409 CONTEXT_REQUIRED |
+| `GET /api/v1/inquiries/{id}/order` | Stage 4 reads current Context; 422 if unbound, 409 CONTEXT_REQUIRED if no valid current Context |
 
 Admin has no business access and receives an empty list. Unknown and forbidden Inquiry
 UUIDs both return the same 403. Request validation follows identity/ownership checks;
@@ -241,6 +282,10 @@ must run separately as described below, and skipped tests do not prove integrati
 process liveness, not database connectivity or external-system readiness.
 
 ### Latest validation status
+
+Stage 4's current tests, exact implementation revision, independent HTTP scenarios and
+remaining acceptance are recorded in [the 2026-10-07 handoff](docs/verification/2026-10-07-stage-4-evidence-context.md).
+The counts below are historical Stage 3/foundation observations.
 
 Stage 3 candidate on 2026-10-04: **116 local tests passed**, including all 13 real
 Sandbox HTTP tests; **59 real PostgreSQL tests passed** in CI (26 persistence + 33

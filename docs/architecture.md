@@ -1,4 +1,22 @@
-# Architecture — Product Phase 1 integration foundation
+# Architecture — Core MVP Stage 4 candidate
+
+The merged baseline includes external Providers, Product persistence and Stage 3
+sessions/scoped Inquiry APIs. The 2026-10-07 handoff task authorizes Stage 4 on a
+separate PR. `api/resolution.py` coordinates authentication, short transactions and
+Provider reads; `services/source_collection.py` stores validated canonical batches;
+`services/evidence.py` builds deterministic, pointer-linked evidence and quality;
+`services/resolution.py` owns idempotency, version chains, reauthorization and recovery.
+Closed wire models live in `services/context_models.py`. No database migration is needed.
+
+Start commits RUNNING and invalidates current pointers before network calls. Finish
+rechecks the same actor/session, ownership, run/version and external bindings before
+atomically saving SourceFetch/Context/Audit. Reads reconstruct Context from immutable
+sources and reject inconsistent chains. Required source errors have no Context;
+optional errors retain available facts. Warehouse notes remain order-scoped because
+the canonical Provider has no parcel association. AI, draft/review and send APIs
+remain future work; [the frozen slice](contracts/stage-4-implementation.md) is authoritative.
+
+## Historical integration foundation
 
 The product authority is [the Core plan](plans/01_core_plan.md). The
 [environment plan](plans/03_ecommerce_environment_plan.md) describes an external
@@ -73,7 +91,8 @@ schemas stay inside `integrations/sandbox/`; they never become Product return ty
 OrderProvider owns order and parcel discovery. LogisticsProvider accepts one canonical
 parcel and reads shipment/events from that source only. It cannot silently discard a
 failed parcel. WarehouseProvider and MessageProvider operate independently. No
-cross-provider collector, evidence creation or conflict resolution is implemented.
+cross-provider collector, evidence creation or conflict resolution was implemented in
+the historical integration foundation. Stage 4 now supplies these limited deterministic rules.
 
 The client assigns an injected Clock's UTC time after each successful HTTP response.
 Snapshots preserve nullable source updates; events keep their own fetch timestamp
@@ -92,11 +111,11 @@ code will determine freshness from original timestamps and explicit cache/failur
 metadata; a cache read must retain its original `fetched_at`. Unknown source update
 times remain unknown. Source failure, empty results and partial results are distinct;
 a logistics timeout is not proof of a parcel exception. All parcels must be accounted
-for before an order-wide statement is made. Runtime freshness behavior is deferred;
+for before an order-wide statement is made. Stage 4 implements runtime freshness using
 the [Stage 1 contract](contracts/evidence-case-context.md) selects versioned default thresholds.
 Retries remain outside the Core MVP implementation slice.
 
-## Runtime foundation today
+## Stage 3 runtime foundation (merged baseline)
 
 The user authorized Stage 3 on 2026-10-04 and self-review/merge on 2026-10-06. This delivery
 implements login/me/logout and permission-scoped Inquiry list/detail through
@@ -105,7 +124,9 @@ only token digests, and reads lock current User → AuthSession → Inquiry in t
 same transaction. Failed login and access denial retain safe audit records; SQL
 or input text never reaches public errors. Authentication precedes manual closed
 request validation. Explicit CORS origins gate browser access. The order route
-returns binding/Context precondition errors and performs no Provider calls.
+returned binding/Context precondition errors without Provider calls in Stage 3.
+Stage 4 replaces that placeholder with a read from the verified current Context,
+reevaluating freshness from original timestamps without new Provider calls.
 See [the frozen implementation slice](contracts/stage-3-implementation.md).
 
 - FastAPI + Pydantic v2 exposes a deterministic, dependency-independent `/health`.

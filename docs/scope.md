@@ -1,6 +1,19 @@
 # Scope freeze
 
-## Current delivery: Product Phase 1 — External Integration Foundation
+## Current delivery candidate: Core MVP Stage 4
+
+The 2026-10-07 user request incorporates the remaining work in《交接1006》. PR #7's
+acceptance/readiness documents are merged. This authorizes manual Provider resolution,
+immutable source records, Evidence/CaseContext, freshness/quality, idempotency/version
+transactions, authorized reads, operator recovery and real HTTP/PostgreSQL tests.
+The [frozen slice](contracts/stage-4-implementation.md) records exact interfaces.
+Delivery is a separate PR pending the data owner's acceptance; no automatic merge.
+
+AI, draft generation, semantic reply Validation, human approval/send flows, UI work,
+Sandbox implementation, retry/cache and deployment/governance changes remain outside
+this task. Stage 4 reuses the merged database schema without redesigning storage.
+
+## Historical Product Phase 1 — External Integration Foundation
 
 Phase 0 foundation remains. This explicitly authorized Phase 1 supersedes the
 original roadmap's database/seed phase ordering. In scope: canonical typed snapshots,
@@ -19,7 +32,7 @@ The user authorized Core MVP Stage 1 on 2026-10-03. This delivery is the
 it selects future interfaces and rules without implementing them. Database/API/Evidence/AI
 remain the separately authorized implementation stages in the [execution plan](plans/04_core_mvp_next_stage_plan.md).
 
-## Future Core V1 in scope
+## Stage 3 historical slice and future Core V1
 
 The user's 2026-10-04 next-stage request authorizes Stage 3 as a dependent candidate:
 backend login/session/logout, current identity checks, permission-filtered Inquiry

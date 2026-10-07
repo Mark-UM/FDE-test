@@ -1,5 +1,12 @@
 # 电商订单咨询处理助手：初步实现项目规划（Core V1）
 
+> 2026-10-07 最新授权：用户提交《交接1006》并要求完成其剩余工作。PR #7 已自审合并
+> 为 `dd059fc`；现推进独立 Stage 4 Evidence / CaseContext 候选，范围见
+> [接口冻结](../contracts/stage-4-implementation.md)与
+> [实际验收记录](../verification/2026-10-07-stage-4-evidence-context.md)。
+> 沿用现有数据库，保留数据负责人质量审查；不自动合并 Stage 4，不开始 Stage 5+。
+> 下方旧授权及路线顺序保留为历史。
+
 > 2026-10-06 后续授权：用户要求“自行审查并合并”。Stage 3 自审未发现合并阻断问题，
 > 按成功 CI 通过 PR #5 合入 main；合并结果以 [PR #5](https://github.com/Mark-UM/FDE-test/pull/5)
 > 为准。不声称两名开发者独立批准，不开始 Stage 4+。见 [自审记录](../verification/2026-10-06-stage-3-self-review.md)。

@@ -17,6 +17,12 @@
   order、逐字段 freshness、context_id；无绑定 422、无有效当前 Context 409，不网络取数。
 - CORS 显式允许 Idempotency-Key；不增加 PATCH、AI、草稿/批准/发送或任意订单搜索。
 
+返回 DTO 也封闭：resolve 为 run_id/state/context_id/context_version/quality/lock_version，
+RUNNING 另有 query_url 与 Location；run 查询为 id/state/version/context_id/error_code/lock_version；
+Context 查询 envelope 精确为 `{context: CaseContext, is_current: boolean}`；order 为
+`{context_id, order: OrderSnapshot, freshness: {JSON Pointer: FRESH|STALE|UNKNOWN}}`。
+业务时间以 UTC 返回；成功读取不刷新原 canonical 时间。OpenAPI 标明 UUID 路径参数。
+
 ## 短事务与中断
 
 复用 User → AuthSession → Inquiry 锁序。开始事务先认证/授权，校验封闭请求和 key，
