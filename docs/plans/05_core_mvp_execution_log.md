@@ -3,7 +3,25 @@
 日期：2026-10-03。授权：用户要求“自动执行并推进计划”。产品边界以
 [Core 计划](01_core_plan.md)为准，契约以 [Stage 1 包](../contracts/README.md)为输入。
 
-## 当前执行范围
+## 2026-10-07 当前执行范围
+
+用户提交《交接1006》并要求完成剩余工作。已审查 PR #7 精确 head `03b67c6`，
+核对文档链接与通过的 CI，按 PR 合并为 `dd059fc`。Stage 4 分支
+`codex/core-evidence-context` 基于最新 main；先提交接口冻结 `afb6ce8`，再实施。
+
+实现范围：手动 resolve、RUNNING/幂等与版本、Provider 规范化快照、可回溯 Evidence、
+确定性时效/质量/冲突、授权 Context/run/order 读取及显式运维恢复。沿用数据库迁移，
+不重复设计数据库，不实现 AI 或 Stage 5+。DOC-02 明确 warehouse notes 是订单级查询。
+交付独立 PR，保留数据负责人质量验收出口；完整结果见
+[2026-10-07 记录](../verification/2026-10-07-stage-4-evidence-context.md)。
+实现 `d3146cf` 的全量 310 项通过，包含 142 真 PG、24 真 HTTP（13 Provider＋11 resolver）；
+Ruff、前端 lint/type/build 和 Compose config 通过。已提交
+[Draft PR #8](https://github.com/Mark-UM/FDE-test/pull/8)；其实现 push CI 四项成功。
+
+工作台 PR #4、main 保护、完整 Compose 联启和浏览器端到端仍需单独任务，
+不把本轮后端验收当成这些任务完成。
+
+## 2026-10-06 历史执行范围
 
 用户随后要求“自行审查并合并”，明确授权现有 PR #5 的自审与合并，取代此前禁止合并的出口。
 自审覆盖身份/会话、权限、防枚举、事务/Audit、错误脱敏、配置及阶段边界，未发现阻断问题。

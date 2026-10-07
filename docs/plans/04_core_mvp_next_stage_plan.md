@@ -1,5 +1,13 @@
 # 当前交付状态与下一阶段计划
 
+最新更新：2026-10-07。用户要求完成《交接1006》剩余工作，现已自审合并 PR #7
+为 `dd059fc`，并授权 **Stage 4 Evidence / CaseContext** 的独立候选。
+接口先冻结于 [实现切片](../contracts/stage-4-implementation.md)，随后实现运行服务、
+纯规则、来源编排、API 与人工恢复。Stage 4 PR 交给数据负责人验收，不自动合并；
+Stage 5+ 尚未授权。实测结果和剩余门见 [验证记录](../verification/2026-10-07-stage-4-evidence-context.md)。
+交付：[Draft PR #8](https://github.com/Mark-UM/FDE-test/pull/8)，本地全量 310 项通过。
+下面 2026-10-06 段落及当时的基线为历史，不再限制已授权的 Stage 4 工作。
+
 同步日期：2026-10-06（Asia/Shanghai）。本文件是执行顺序与任务拆分，产品边界仍以
 [01_core_plan.md](01_core_plan.md) 为准。契约 PR #2、数据库 PR #3 和修复 PR #6
 已合并 main；Stage 3 PR #5 已整合最新 main、改 base 并重跑验证。
@@ -44,7 +52,7 @@ Evidence/CaseContext 运行计算、AI、人工审核工作流未实现。两人
 | Stage 1：Core MVP 契约 | PR #2 已合并 | 支撑原 Phase 1、2、4、5、6 | 后续实现沿用冻结契约 |
 | Stage 2：数据库 / 工作台外壳 | 数据库及修复已合并；工作台 PR #4 独立待审 | 原 Phase 1、Phase 7 外壳 | 工作台另行同步基线并 Review |
 | Stage 3：身份授权与咨询 API | [PR #5](https://github.com/Mark-UM/FDE-test/pull/5) 已整合 main；测试与自审通过，用户授权合并 | auth/Inquiry 读取；order 无 Context 返回 409 | 按最新成功 CI 合并；停止在本阶段 |
-| Stage 4：Evidence / CaseContext | 未开始 | 原 Phase 4 | 授权/API 与来源契约就绪后开始 |
+| Stage 4：Evidence / CaseContext | 2026-10-07 独立候选已实现，实测/验收见最新记录 | 原 Phase 4 | 数据负责人检查证据/质量及 PR；不自动合并 |
 | Stage 5：AI 草稿 / Validation / Review | 未开始 | 原 Phase 5、6、人工审核部分 | 只接收已授权、可追踪的 CaseContext |
 | Stage 6：工作台 / MVP 端到端验收 | 未开始 | 原 Phase 7、10 的最小子集 | 正常及失败路径都通过，人工修改后重新校验 |
 

@@ -72,7 +72,8 @@ jobs:
           cache: pip
           cache-dependency-path: backend/pyproject.toml
       - run: python -m pip install -e ".[dev]"
-      - run: pytest tests/database -q
+      # Cross-system HTTP resolver acceptance is run separately against the independent Sandbox.
+      - run: pytest tests/database -m "not integration" -q
 
   compose:
     runs-on: ubuntu-latest

@@ -13,12 +13,30 @@ from starlette.responses import JSONResponse
 from app.api.core import router as core_router
 from app.api.errors import ApiError
 from app.api.health import router as health_router
+from app.api.resolution import router as resolution_router
 from app.core.clock import SystemClock
 from app.core.config import Settings
 from app.db.connection import product_engine
+from app.integrations.sandbox.client import SandboxClient
+from app.integrations.sandbox.providers import (
+    SandboxLogisticsProvider,
+    SandboxMessageProvider,
+    SandboxOrderProvider,
+    SandboxWarehouseProvider,
+)
+from app.services.context_models import FreshnessPolicy
+from app.services.source_collection import Providers
 
 
-def create_app(settings: Settings | None = None, *, session_factory=None, clock=None) -> FastAPI:
+def create_app(
+    settings: Settings | None = None,
+    *,
+    session_factory=None,
+    clock=None,
+    provider_factory=None,
+    freshness_policy=None,
+    policy_version="core-policy-v1",
+) -> FastAPI:
     settings = settings or Settings()
     engine = None
     engine_lock = Lock()
@@ -46,12 +64,33 @@ def create_app(settings: Settings | None = None, *, session_factory=None, clock=
     application.state.settings = settings
     application.state.clock = clock or SystemClock()
     application.state.session_factory = session_factory or default_sessions
+    application.state.freshness_policy = freshness_policy or FreshnessPolicy()
+    if (
+        application.state.freshness_policy.version != "freshness-v1"
+        and policy_version == "core-policy-v1"
+    ):
+        raise ValueError("Changed freshness policy requires a new composite policy version")
+    application.state.policy_version = policy_version
+
+    @asynccontextmanager
+    async def default_providers():
+        if settings.sandbox_base_url is None:
+            raise ApiError(503, "SOURCE_UNAVAILABLE")
+        async with SandboxClient(settings, application.state.clock) as client:
+            yield Providers(
+                SandboxOrderProvider(client),
+                SandboxLogisticsProvider(client),
+                SandboxWarehouseProvider(client),
+                SandboxMessageProvider(client),
+            )
+
+    application.state.provider_factory = provider_factory or default_providers
     application.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_methods=["GET", "POST"],
-        allow_headers=["Authorization", "Content-Type", "X-Request-Id"],
-        expose_headers=["X-Request-Id"],
+        allow_headers=["Authorization", "Content-Type", "X-Request-Id", "Idempotency-Key"],
+        expose_headers=["X-Request-Id", "Location"],
         allow_credentials=False,
     )
 
@@ -88,6 +127,7 @@ def create_app(settings: Settings | None = None, *, session_factory=None, clock=
 
     application.include_router(health_router)
     application.include_router(core_router)
+    application.include_router(resolution_router)
 
     def openapi():
         if application.openapi_schema is None:
