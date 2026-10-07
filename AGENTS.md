@@ -39,6 +39,11 @@ a CRM, ERP, or a complete ecommerce platform. Avoid unrelated refactors.
   This supersedes the earlier Stage 3 merge restriction: review its exact code,
   record self-review honestly, require successful checks and merge through the PR.
   Do not claim independent developer approval or start Stage 4+.
+- On 2026-10-07 the user requested completion of the remaining work in 交接1006.docx.
+  This authorizes reviewing/merging handoff PR #7 and implementing Stage 4
+  Evidence/CaseContext on its merged baseline, delivered through a separate PR.
+  Freeze docs/contracts/stage-4-implementation.md before runtime changes. No AI,
+  Stage 5+, Sandbox implementation or automatic merge of the Stage 4 delivery.
 
 ## Non-negotiable boundaries
 
