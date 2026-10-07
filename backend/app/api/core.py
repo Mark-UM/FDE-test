@@ -127,17 +127,3 @@ async def inquiry(request: Request):
             header, request.path_params["id"], body, query
         ),
     )
-
-
-@router.get(
-    "/inquiries/{id}/order",
-    openapi_extra={**SECURITY, "parameters": [PATH_ID]},
-    responses={409: {"description": "CONTEXT_REQUIRED (Stage 4 reads the current snapshot)"}},
-)
-async def order(request: Request):
-    return await invoke(
-        request,
-        lambda service, header, body, query: service.read_inquiry(
-            header, request.path_params["id"], body, query, order=True
-        ),
-    )

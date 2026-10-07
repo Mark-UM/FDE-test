@@ -31,6 +31,9 @@ def no_database():
         "/inquiries?limit=wrong",
         "/inquiries/not-a-uuid",
         "/inquiries/not-a-uuid/order",
+        "/inquiries/not-a-uuid/resolve-context",
+        "/inquiries/not-a-uuid/runs/not-a-uuid",
+        "/inquiries/not-a-uuid/contexts/not-a-uuid",
     ],
 )
 @pytest.mark.parametrize("header", [None, "Basic invalid", "Bearer malformed"])
@@ -38,7 +41,7 @@ def test_unauthenticated_requests_precede_schema_validation_and_database(path, h
     application = create_app(Settings(_env_file=None), session_factory=no_database)
     with TestClient(application) as client:
         response = client.request(
-            "POST" if path == "/auth/logout" else "GET",
+            "POST" if path == "/auth/logout" or path.endswith("resolve-context") else "GET",
             "/api/v1" + path,
             headers={"Authorization": header} if header else {},
             content=b"invalid JSON",
@@ -49,7 +52,7 @@ def test_unauthenticated_requests_precede_schema_validation_and_database(path, h
     assert response.json()["error"]["request_id"] == response.headers["x-request-id"]
 
 
-def test_health_and_openapi_do_not_connect_and_only_stage_3_routes_exist():
+def test_health_and_openapi_do_not_connect_and_only_authorized_stage_4_routes_exist():
     application = create_app(Settings(_env_file=None), session_factory=no_database)
     with TestClient(application) as client:
         assert client.get("/health").json()["status"] == "ok"
@@ -63,6 +66,9 @@ def test_health_and_openapi_do_not_connect_and_only_stage_3_routes_exist():
         "/api/v1/inquiries",
         "/api/v1/inquiries/{id}",
         "/api/v1/inquiries/{id}/order",
+        "/api/v1/inquiries/{id}/resolve-context",
+        "/api/v1/inquiries/{id}/runs/{run_id}",
+        "/api/v1/inquiries/{id}/contexts/{context_id}",
     }
     assert schema["components"]["securitySchemes"]["BearerAuth"]["scheme"] == "bearer"
     assert schema["paths"]["/api/v1/auth/me"]["get"]["security"] == [{"BearerAuth": []}]
